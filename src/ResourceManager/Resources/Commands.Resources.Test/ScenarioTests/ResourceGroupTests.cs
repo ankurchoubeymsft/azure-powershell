@@ -62,6 +62,13 @@ namespace Microsoft.Azure.Commands.Resources.Test.ScenarioTests
             ResourcesController.NewInstance.RunPsTest("Test-RemoveNonExistingResourceGroup");
         }
 
+        [Fact]
+        [Trait(Category.AcceptanceType, Category.CheckIn)]
+        public void TestFindResourceGroup()
+        {
+            ResourcesController.NewInstance.RunPsTest("Test-FindResourceGroup");
+        }
+
         [Fact (Skip = "TODO: Fix the broken test.")]
         public void TestAzureTagsEndToEnd()
         {
@@ -76,15 +83,15 @@ namespace Microsoft.Azure.Commands.Resources.Test.ScenarioTests
         }
 
         [Fact]
-        public void TestNewResourceGroupWithTemplate()
-        {
-            ResourcesController.NewInstance.RunPsTest("Test-NewResourceGroupWithTemplateThenGetWithAndWithoutDetails");
-        }
-
-        [Fact]
         public void TestRemoveDeployment()
         {
             ResourcesController.NewInstance.RunPsTest("Test-RemoveDeployment");
+        }
+
+        [Fact]
+        public void TestGetNonExistingResourceGroupWithDebugStream()
+        {
+            ResourcesController.NewInstance.RunPsTest("Test-GetNonExistingResourceGroupWithDebugStream");
         }
     }
 }

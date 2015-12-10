@@ -42,12 +42,22 @@ namespace Microsoft.Azure.Commands.Batch
             set { this.maxCount = value; }
         }
 
-        protected override void ProcessRecord()
+        [Parameter]
+        [ValidateNotNullOrEmpty]
+        public string Select { get; set; }
+
+        [Parameter]
+        [ValidateNotNullOrEmpty]
+        public string Expand { get; set; }
+
+        public override void ExecuteCmdlet()
         {
             ListJobScheduleOptions options = new ListJobScheduleOptions(this.BatchContext, this.AdditionalBehaviors)
             {
                 JobScheduleId = this.Id,
                 Filter = this.Filter,
+                Select = this.Select,
+                Expand = this.Expand,
                 MaxCount = this.MaxCount
             };
 

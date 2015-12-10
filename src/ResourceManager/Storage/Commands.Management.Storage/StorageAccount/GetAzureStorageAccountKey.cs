@@ -25,7 +25,7 @@ namespace Microsoft.Azure.Commands.Management.Storage
             Position = 0,
             Mandatory = true,
             ValueFromPipelineByPropertyName = true,
-            HelpMessage = "Resource Group Name.")]
+            HelpMessage = "Resource Group StorageAccountName.")]
         [ValidateNotNullOrEmpty]
         public string ResourceGroupName { get; set; }
 
@@ -33,20 +33,20 @@ namespace Microsoft.Azure.Commands.Management.Storage
             Position = 1,
             Mandatory = true,
             ValueFromPipelineByPropertyName = true,
-            HelpMessage = "Storage Account Name.")]
+            HelpMessage = "Storage Account StorageAccountName.")]
         [Alias(StorageAccountNameAlias, AccountNameAlias)]
         [ValidateNotNullOrEmpty]
         public string Name { get; set; }
 
-        protected override void ProcessRecord()
+        public override void ExecuteCmdlet()
         {
-            base.ProcessRecord();
+            base.ExecuteCmdlet();
 
-            var listKeyResponse = this.StorageClient.StorageAccounts.ListKeys(
+            var storageKeys = this.StorageClient.StorageAccounts.ListKeys(
                  this.ResourceGroupName,
-                 this.Name);
+                 this.Name).StorageAccountKeys;
 
-            WriteObject(listKeyResponse.StorageAccountKeys);
+            WriteObject(storageKeys);
         }
     }
 }

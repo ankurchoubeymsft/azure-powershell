@@ -14,13 +14,12 @@
 
 using System;
 using System.Collections;
-using System.Security;
 using System.Management.Automation;
 using Microsoft.Azure.Commands.KeyVault.Models;
 
 namespace Microsoft.Azure.Commands.KeyVault
 {
-    [Cmdlet(VerbsCommon.Set, "AzureRmKeyVaultSecretAttribute", HelpUri = Constants.KeyVaultHelpUri)]
+    [Cmdlet(VerbsCommon.Set, "AzureKeyVaultSecretAttribute", HelpUri = Constants.KeyVaultHelpUri)]
     [OutputType(typeof(Secret))]
     public class SetAzureKeyVaultSecretAttribute : KeyVaultCmdletBase
     {
@@ -105,7 +104,7 @@ namespace Microsoft.Azure.Commands.KeyVault
 
         #endregion
 
-        protected override void ProcessRecord()
+        public override void ExecuteCmdlet()
         {            
             var secret = DataServiceClient.UpdateSecret(
                 VaultName,

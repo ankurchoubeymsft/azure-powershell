@@ -18,13 +18,14 @@ using Microsoft.Azure.Common.Authentication.Models;
 using Microsoft.Azure.Commands.Profile.Models;
 using Microsoft.Azure.Commands.Profile.Properties;
 using Microsoft.Azure.Commands.ResourceManager.Common;
+using Microsoft.WindowsAzure.Commands.Common;
 
 namespace Microsoft.Azure.Commands.Profile
 {
     /// <summary>
     /// Selects Microsoft Azure profile.
     /// </summary>
-    [Cmdlet(VerbsCommon.Select, "AzureRMProfile"), OutputType(typeof(PSAzureProfile))]
+    [Cmdlet(VerbsCommon.Select, "AzureRmProfile"), OutputType(typeof(PSAzureProfile))]
     public class SelectAzureRMProfileCommand : AzureRMCmdlet
     {
         internal const string InMemoryProfileParameterSet = "InMemoryProfile";
@@ -41,23 +42,23 @@ namespace Microsoft.Azure.Commands.Profile
             // Do not access the DefaultContext when loading a profile
         }
 
-        protected override void ProcessRecord()
+        public override void ExecuteCmdlet()
         {
             if (!string.IsNullOrEmpty(Path))
             {
-                AzureRMCmdlet.DefaultProfile = new AzureRMProfile(Path);
+                AzureRmProfileProvider.Instance.Profile = new AzureRMProfile(Path);
             }
             else
             {
-                AzureRMCmdlet.DefaultProfile = Profile;
+                AzureRmProfileProvider.Instance.Profile = Profile;
             }
 
-            if (AzureRMCmdlet.DefaultProfile == null)
+            if (AzureRmProfileProvider.Instance.Profile == null)
             {
                 throw new ArgumentException(Resources.AzureProfileMustNotBeNull);
             }
 
-            WriteObject((PSAzureProfile)AzureRMCmdlet.DefaultProfile);
+            WriteObject((PSAzureProfile)AzureRmProfileProvider.Instance.Profile);
         }
     }
 }

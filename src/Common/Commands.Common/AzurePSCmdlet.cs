@@ -25,6 +25,7 @@ using Newtonsoft.Json;
 using System.IO;
 using System.Management.Automation.Host;
 using System.Text;
+using System.Linq;
 using System.Threading;
 
 namespace Microsoft.WindowsAzure.Commands.Utilities.Common
@@ -34,10 +35,10 @@ namespace Microsoft.WindowsAzure.Commands.Utilities.Common
     /// </summary>
     public abstract class AzurePSCmdlet : PSCmdlet, IDisposable
     {
-        private readonly ConcurrentQueue<string> _debugMessages;
+        protected readonly ConcurrentQueue<string> _debugMessages;
 
         private RecordingTracingInterceptor _httpTracingInterceptor;
-
+        
         private DebugStreamTraceListener _adalListener;
         protected static AzurePSDataCollectionProfile _dataCollectionProfile = null;
         protected static string _errorRecordFolderPath = null;
@@ -160,7 +161,10 @@ namespace Microsoft.WindowsAzure.Commands.Utilities.Common
         protected bool CheckIfInteractive()
         {
             bool interactive = true;
-            if (this.Host == null || this.Host.UI == null || this.Host.UI.RawUI == null)
+            if (this.Host == null || 
+                this.Host.UI == null || 
+                this.Host.UI.RawUI == null ||
+                Environment.GetCommandLineArgs().Any(s => s.Equals("-NonInteractive", StringComparison.OrdinalIgnoreCase)))
             {
                 interactive = false;
             }
@@ -218,7 +222,7 @@ namespace Microsoft.WindowsAzure.Commands.Utilities.Common
             ProductInfoHeaderValue userAgentValue = new ProductInfoHeaderValue(
                 ModuleName, string.Format("v{0}", ModuleVersion));
             AzureSession.ClientFactory.UserAgents.Add(userAgentValue);
-
+            AzureSession.ClientFactory.AddHandler(new CmdletInfoHandler(this.CommandRuntime.ToString(), this.ParameterSetName));
             base.BeginProcessing();
         }
 
@@ -235,8 +239,8 @@ namespace Microsoft.WindowsAzure.Commands.Utilities.Common
             DebugStreamTraceListener.RemoveAdalTracing(_adalListener);
             FlushDebugMessages();
 
-            AzureSession.ClientFactory.UserAgents.RemoveAll(u => u.Product.Name == ModuleName);
-
+            AzureSession.ClientFactory.UserAgents.RemoveWhere(u => u.Product.Name == ModuleName);
+            AzureSession.ClientFactory.RemoveHandler(typeof(CmdletInfoHandler));
             base.EndProcessing();
         }
 
@@ -266,6 +270,12 @@ namespace Microsoft.WindowsAzure.Commands.Utilities.Common
             }
             
             base.WriteError(errorRecord);
+        }
+
+        protected new void ThrowTerminatingError(ErrorRecord errorRecord)
+        {
+            FlushDebugMessages(IsDataCollectionAllowed());
+            base.ThrowTerminatingError(errorRecord);
         }
 
         protected new void WriteObject(object sendToPipeline)
@@ -483,6 +493,24 @@ namespace Microsoft.WindowsAzure.Commands.Utilities.Common
             }
         }
 
+        public virtual void ExecuteCmdlet()
+        {
+            // Do nothing.
+        }
+
+        protected override void ProcessRecord()
+        {
+            try
+            {
+                base.ProcessRecord();
+                ExecuteCmdlet();
+            }
+            catch (Exception ex)
+            {
+                WriteExceptionError(ex);
+            }
+        }
+
         protected virtual void Dispose(bool disposing)
         {
             if (_adalListener != null)
@@ -493,6 +521,11 @@ namespace Microsoft.WindowsAzure.Commands.Utilities.Common
 
         public void Dispose()
         {
+            try
+            {
+                FlushDebugMessages();
+            }
+            catch { }
             Dispose(true);
             GC.SuppressFinalize(this);
         }

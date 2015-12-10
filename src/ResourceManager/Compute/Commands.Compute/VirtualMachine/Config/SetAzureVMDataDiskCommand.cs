@@ -68,7 +68,7 @@ namespace Microsoft.Azure.Commands.Compute
             ValueFromPipelineByPropertyName = true,
             HelpMessage = HelpMessages.VMDataDiskCaching)]
         [ValidateNotNullOrEmpty]
-        [ValidateSet(ValidateSetValues.ReadOnly, ValidateSetValues.ReadWrite)]
+        [ValidateSet(ValidateSetValues.ReadOnly, ValidateSetValues.ReadWrite, ValidateSetValues.None)]
         public string Caching { get; set; }
 
         [Parameter(
@@ -79,7 +79,7 @@ namespace Microsoft.Azure.Commands.Compute
         [AllowNull]
         public int? DiskSizeInGB { get; set; }
 
-        protected override void ProcessRecord()
+        public override void ExecuteCmdlet()
         {            
             var storageProfile = this.VM.StorageProfile;            
 
