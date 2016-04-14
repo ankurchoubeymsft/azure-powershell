@@ -74,7 +74,7 @@ namespace Microsoft.Azure.Commands.Network
         public string ServiceProviderName { get; set; }
 
         [Parameter(
-             Mandatory = false,
+             Mandatory = true,
              ValueFromPipelineByPropertyName = true)]
         public string PeeringLocation { get; set; }
 
@@ -94,6 +94,13 @@ namespace Microsoft.Azure.Commands.Network
            ValueFromPipelineByPropertyName = true)]
         [ValidateNotNullOrEmpty]
         public List<PSExpressRouteCircuitAuthorization> Authorization { get; set; }
+
+        [Parameter(
+           Mandatory = false,
+           ValueFromPipelineByPropertyName = true)]
+        [ValidateNotNullOrEmpty]
+        public bool? AllowClassicOperations { get; set; }
+
 
         [Parameter(
             Mandatory = false,
@@ -158,6 +165,7 @@ namespace Microsoft.Azure.Commands.Network
             circuit.Peerings = this.Peering;
             circuit.Authorizations = new List<PSExpressRouteCircuitAuthorization>();
             circuit.Authorizations = this.Authorization;
+            circuit.AllowClassicOperations = this.AllowClassicOperations;
 
             // Map to the sdk object
             var circuitModel = Mapper.Map<MNM.ExpressRouteCircuit>(circuit);
