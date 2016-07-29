@@ -15,9 +15,11 @@
 using Microsoft.Azure;
 using Microsoft.Azure.Commands.Common.Authentication;
 using Microsoft.Azure.Commands.Common.Authentication.Models;
+using Microsoft.Azure.Commands.Common.Authentication.Utilities;
 using Microsoft.Azure.ServiceManagemenet.Common.Models;
 using Microsoft.Azure.Test;
 using Microsoft.Azure.Test.HttpRecorder;
+using Microsoft.Rest;
 using Microsoft.WindowsAzure.Commands.Common;
 using Microsoft.WindowsAzure.Commands.Common.Test.Mocks;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
@@ -28,8 +30,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using System.Net.Http;
 using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 
 namespace Microsoft.WindowsAzure.Commands.ScenarioTest
 {
@@ -71,6 +75,8 @@ namespace Microsoft.WindowsAzure.Commands.ScenarioTest
 
             // Ignore SSL errors
             System.Net.ServicePointManager.ServerCertificateValidationCallback += (se, cert, chain, sslerror) => true;
+
+            AdalTokenCache.ClearCookies();
 
             // Set RunningMocked
             TestMockSupport.RunningMocked = HttpMockServer.GetCurrentMode() == HttpRecorderMode.Playback;
@@ -231,28 +237,23 @@ namespace Microsoft.WindowsAzure.Commands.ScenarioTest
 
         private void SetAuthenticationFactory(AzureModule mode, TestEnvironment environment)
         {
-            string jwtToken = null;
-            X509Certificate2 certificate = null;
-
-            if (environment.Credentials is TokenCloudCredentials)
-            {
-                jwtToken = ((TokenCloudCredentials)environment.Credentials).Token;
-            }
-            if (environment.Credentials is CertificateCloudCredentials)
-            {
-                certificate = ((CertificateCloudCredentials)environment.Credentials).ManagementCertificate;
-            }
-
-
-            if (jwtToken != null)
-            {
-                AzureSession.AuthenticationFactory = new MockTokenAuthenticationFactory(environment.UserName,
-                    jwtToken);
-            }
-            else if (certificate != null)
+            if(environment.AuthorizationContext.Certificate != null)
             {
                 AzureSession.AuthenticationFactory = new MockCertificateAuthenticationFactory(environment.UserName,
-                    certificate);
+                    environment.AuthorizationContext.Certificate);
+            }
+            else if(environment.AuthorizationContext.TokenCredentials.ContainsKey(TokenAudience.Management))
+            {
+                var httpMessage = new HttpRequestMessage();
+                environment.AuthorizationContext.TokenCredentials[TokenAudience.Management]
+                    .ProcessHttpRequestAsync(httpMessage, CancellationToken.None)
+                    .ConfigureAwait(false)
+                    .GetAwaiter()
+                    .GetResult();
+
+                AzureSession.AuthenticationFactory = new MockTokenAuthenticationFactory(
+                    environment.UserName,
+                    httpMessage.Headers.Authorization.Parameter);
             }
         }
 
@@ -262,7 +263,9 @@ namespace Microsoft.WindowsAzure.Commands.ScenarioTest
             if (mode == AzureModule.AzureProfile)
             {
                 this.modules.Add(Path.Combine(PackageDirectory, @"ServiceManagement\Azure\Azure.psd1"));
-                this.modules.Add(Path.Combine(PackageDirectory, @"ResourceManager\AzureResourceManager\AzureResourceManager.psd1"));
+                this.modules.Add(Path.Combine(PackageDirectory, @"ResourceManager\AzureResourceManager\AzureRM.Profile\AzureRM.Profile.psd1"));
+                this.modules.Add(Path.Combine(PackageDirectory, @"ResourceManager\AzureResourceManager\AzureRM.Resources\AzureRM.Resources.psd1"));
+                this.modules.Add(Path.Combine(PackageDirectory, @"ResourceManager\AzureResourceManager\AzureRM.Resources\AzureRM.Tags.psd1"));
             }
             else if (mode == AzureModule.AzureServiceManagement)
             {
@@ -280,7 +283,9 @@ namespace Microsoft.WindowsAzure.Commands.ScenarioTest
             if (mode == AzureModule.AzureProfile)
             {
                 this.modules.Add(Path.Combine(PackageDirectoryFromCommon, @"ServiceManagement\Azure\Azure.psd1"));
-                this.modules.Add(Path.Combine(PackageDirectoryFromCommon, @"ResourceManager\AzureResourceManager\AzureResourceManager.psd1"));
+                this.modules.Add(Path.Combine(PackageDirectoryFromCommon, @"ResourceManager\AzureResourceManager\AzureRM.Profile\AzureRM.Profile.psd1"));
+                this.modules.Add(Path.Combine(PackageDirectoryFromCommon, @"ResourceManager\AzureResourceManager\AzureRM.Resources\AzureRM.Resources.psd1"));
+                this.modules.Add(Path.Combine(PackageDirectoryFromCommon, @"ResourceManager\AzureResourceManager\AzureRM.Resources\AzureRM.Tags.psd1"));
             }
             else if (mode == AzureModule.AzureServiceManagement)
             {
@@ -288,7 +293,9 @@ namespace Microsoft.WindowsAzure.Commands.ScenarioTest
             }
             else if (mode == AzureModule.AzureResourceManager)
             {
-                this.modules.Add(Path.Combine(PackageDirectoryFromCommon, @"ResourceManager\AzureResourceManager\AzureResourceManager.psd1"));
+                this.modules.Add(Path.Combine(PackageDirectoryFromCommon, @"ResourceManager\AzureResourceManager\AzureRM.Profile\AzureRM.Profile.psd1"));
+                this.modules.Add(Path.Combine(PackageDirectoryFromCommon, @"ResourceManager\AzureResourceManager\AzureRM.Resources\AzureRM.Resources.psd1"));
+                this.modules.Add(Path.Combine(PackageDirectoryFromCommon, @"ResourceManager\AzureResourceManager\AzureRM.Resources\AzureRM.Tags.psd1"));
             }
             else
             {
@@ -309,14 +316,19 @@ namespace Microsoft.WindowsAzure.Commands.ScenarioTest
 
         public virtual Collection<PSObject> RunPowerShellTest(params string[] scripts)
         {
-            Dictionary<string, string> d = new Dictionary<string, string>();
-            d.Add("Microsoft.Resources", null);
-            d.Add("Microsoft.Features", null);
-            d.Add("Microsoft.Authorization", null);
-            d.Add("Microsoft.Compute", null);
-            var providersToIgnore = new Dictionary<string, string>();
-            providersToIgnore.Add("Microsoft.Azure.Management.Resources.ResourceManagementClient", "2016-02-01");
-            HttpMockServer.Matcher = new PermissiveRecordMatcherWithApiExclusion(true, d, providersToIgnore);
+            // If a test customizes the reecord matcher, use the cutomized version otherwise use the default
+            // permissive record matcher.
+            if (HttpMockServer.Matcher == null || HttpMockServer.Matcher.GetType() == typeof(SimpleRecordMatcher))
+            {
+                Dictionary<string, string> d = new Dictionary<string, string>();
+                d.Add("Microsoft.Resources", null);
+                d.Add("Microsoft.Features", null);
+                d.Add("Microsoft.Authorization", null);
+                d.Add("Microsoft.Compute", null);
+                var providersToIgnore = new Dictionary<string, string>();
+                providersToIgnore.Add("Microsoft.Azure.Management.Resources.ResourceManagementClient", "2016-02-01");
+                HttpMockServer.Matcher = new PermissiveRecordMatcherWithApiExclusion(true, d, providersToIgnore);
+            }
 
             using (var powershell = System.Management.Automation.PowerShell.Create(RunspaceMode.NewRunspace))
             {

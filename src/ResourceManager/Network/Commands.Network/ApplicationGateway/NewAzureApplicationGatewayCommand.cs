@@ -1,4 +1,4 @@
-﻿// ----------------------------------------------------------------------------------
+// ----------------------------------------------------------------------------------
 //
 // Copyright Microsoft Corporation
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +14,7 @@
 
 using AutoMapper;
 using Microsoft.Azure.Commands.Network.Models;
-using Microsoft.Azure.Commands.Tags.Model;
+using Microsoft.Azure.Commands.ResourceManager.Common.Tags;
 using Microsoft.Azure.Management.Network;
 using System.Collections;
 using System.Collections.Generic;
@@ -23,7 +23,8 @@ using MNM = Microsoft.Azure.Management.Network.Models;
 
 namespace Microsoft.Azure.Commands.Network
 {
-    [Cmdlet(VerbsCommon.New, "AzureRmApplicationGateway"), OutputType(typeof(PSApplicationGateway))]
+    [Cmdlet(VerbsCommon.New, "AzureRmApplicationGateway", SupportsShouldProcess = true), 
+        OutputType(typeof(PSApplicationGateway))]
     public class NewAzureApplicationGatewayCommand : ApplicationGatewayBaseCmdlet
     {
         [Alias("ResourceName")]
@@ -131,25 +132,19 @@ namespace Microsoft.Azure.Commands.Network
         {
             base.ExecuteCmdlet();
 
-            WriteWarning("The output object type of this cmdlet will be modified in a future release. Also, the usability of Tag parameter in this cmdlet will be modified in a future release. This will impact creating, updating and appending tags for Azure resources. For more details about the change, please visit https://github.com/Azure/azure-powershell/issues/726#issuecomment-213545494");
-
-            if (this.IsApplicationGatewayPresent(this.ResourceGroupName, this.Name))
-            {
-                ConfirmAction(
-                    Force.IsPresent,
-                    string.Format(Microsoft.Azure.Commands.Network.Properties.Resources.OverwritingResource, Name),
-                    Microsoft.Azure.Commands.Network.Properties.Resources.OverwritingResourceMessage,
-                    Name,
-                    () => CreateApplicationGateway());
-
-                WriteObject(this.GetApplicationGateway(this.ResourceGroupName, this.Name));
-            }
-            else
-            {
-                var applicationGateway = this.CreateApplicationGateway();
-
-                WriteObject(applicationGateway);
-            }
+            WriteWarning("The output object type of this cmdlet will be modified in a future release.");
+            var present = this.IsApplicationGatewayPresent(this.ResourceGroupName, this.Name);
+            ConfirmAction(
+                Force.IsPresent,
+                string.Format(Microsoft.Azure.Commands.Network.Properties.Resources.OverwritingResource, Name),
+                Microsoft.Azure.Commands.Network.Properties.Resources.OverwritingResourceMessage,
+                Name,
+                () =>
+                {
+                    var applicationGateway = CreateApplicationGateway();
+                    WriteObject(applicationGateway);
+                },
+                () => present);
         }
 
         private PSApplicationGateway CreateApplicationGateway()
@@ -162,61 +157,51 @@ namespace Microsoft.Azure.Commands.Network
 
             if (this.GatewayIPConfigurations != null)
             {
-                applicationGateway.GatewayIPConfigurations = new List<PSApplicationGatewayIPConfiguration>();
                 applicationGateway.GatewayIPConfigurations = this.GatewayIPConfigurations;
             }
 
             if (this.SslCertificates != null)
             {
-                applicationGateway.SslCertificates = new List<PSApplicationGatewaySslCertificate>();
                 applicationGateway.SslCertificates = this.SslCertificates;
             }
 
             if (this.FrontendIPConfigurations != null)
             {
-                applicationGateway.FrontendIPConfigurations = new List<PSApplicationGatewayFrontendIPConfiguration>();
                 applicationGateway.FrontendIPConfigurations = this.FrontendIPConfigurations;
             }
 
             if (this.FrontendPorts != null)
             {
-                applicationGateway.FrontendPorts = new List<PSApplicationGatewayFrontendPort>();
                 applicationGateway.FrontendPorts = this.FrontendPorts;
             }
 
             if (this.Probes != null)
             {
-                applicationGateway.Probes = new List<PSApplicationGatewayProbe>();
                 applicationGateway.Probes = this.Probes;
             }
 
             if (this.BackendAddressPools != null)
             {
-                applicationGateway.BackendAddressPools = new List<PSApplicationGatewayBackendAddressPool>();
                 applicationGateway.BackendAddressPools = this.BackendAddressPools;
             }
 
             if (this.BackendHttpSettingsCollection != null)
             {
-                applicationGateway.BackendHttpSettingsCollection = new List<PSApplicationGatewayBackendHttpSettings>();
                 applicationGateway.BackendHttpSettingsCollection = this.BackendHttpSettingsCollection;
             }
 
             if (this.HttpListeners != null)
             {
-                applicationGateway.HttpListeners = new List<PSApplicationGatewayHttpListener>();
                 applicationGateway.HttpListeners = this.HttpListeners;
             }
 
             if (this.UrlPathMaps != null)
             {
-                applicationGateway.UrlPathMaps = new List<PSApplicationGatewayUrlPathMap>();
                 applicationGateway.UrlPathMaps = this.UrlPathMaps;
             }
 
             if (this.RequestRoutingRules != null)
             {
-                applicationGateway.RequestRoutingRules = new List<PSApplicationGatewayRequestRoutingRule>();
                 applicationGateway.RequestRoutingRules = this.RequestRoutingRules;
             }
 
